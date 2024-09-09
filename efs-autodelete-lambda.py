@@ -1,3 +1,4 @@
+# This code executes in a lambda function which is triggered once every month. It deletes all the files in EFS that are older than 30 days.
 import os
 import time
 import shutil
