@@ -1,0 +1,82 @@
+name: "Verify: {Service Name}" #Job Name.
+
+on:                   #Start execution when there is a new commit or a pull request.
+  push:
+    branches:
+      - main
+    tags-ignore:
+      - '**'
+    paths:
+      - "{Service Name}/**"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "{Service Name}/**"
+
+env:
+  JFROG_CLI_LOG_LEVEL: DEBUG
+  WORKING_DIRECTORY: {Service Name}
+
+jobs:
+  verify-and-test:
+    runs-on: [self-hosted, worker-regular]
+
+    steps:
+      - name: Checkout Repository #Checkout Repository.
+        uses: actions/checkout@v4
+
+      - name: Set Up Go #SetUp GO.
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.20'
+          cache-dependency-path: ./go.sum
+
+      - name: Build Project #Build.
+        shell: bash
+        run: go build -v ./...
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Run Unit Tests #Run Tests.
+        shell: bash
+        run: |
+          go test -v ./...
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Generate Code Coverage Report #Code Coverage Report.
+        shell: bash
+        run: |
+          export GOPATH="$HOME/go/"
+          export PATH=$PATH:$GOPATH/bin
+          go install github.com/jstemmer/go-junit-report@latest
+          go install github.com/t-yuki/gocover-cobertura@latest
+          go generate ./...
+          go test -v -coverprofile=coverage.out ./... | go-junit-report -set-exit-code > tests.xml
+          gocover-cobertura < coverage.out > coverage.xml
+          go tool cover -html=coverage.out -o coverage.html
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Upload Test Coverage Report - tests.xml #Upload the test reports to GitHub Runtime.
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-coverage-report-1 (tests.xml)
+          path: '${{ env.WORKING_DIRECTORY }}/tests.xml'
+
+      - name: Upload Test Coverage Report - coverage.xml #Upload the test coverage reports to GitHub Runtime.
+        uses: actions/upload-artifact@v4
+        with:
+           name: test-coverage-report-2 (coverage.xml) 
+           path: '${{ env.WORKING_DIRECTORY }}/coverage.xml'
+
+      - name: Test Summary   #Creates test summary.
+        uses: test-summary/action@v2
+        with:
+          paths: '${{ env.WORKING_DIRECTORY }}/tests.xml'
+        if: always()
+
+      - name: Code Coverage Summary Report #Creates code coverage summary.
+        uses: insightsengineering/coverage-action@v2
+        with:
+          path: '${{ env.WORKING_DIRECTORY }}/coverage.xml'
+          publish: true
+          diff: true
