@@ -1,0 +1,57 @@
+name: "Publish: {Service Name}" #Job Name.
+run-name: Publish {Service Name} from tag = ${{ github.ref_name }} #This name is visible on the list of runs.
+
+on:        #The job gets executed as soon as a new tag is released.
+  push:
+    tags:
+      - '{Service Name}/v*'
+
+env:
+  JFROG_CLI_LOG_LEVEL: DEBUG
+  WORKING_DIRECTORY: "{Service Name}" #Required for a MONO REPO based deployments.
+
+jobs:
+  build-and-publish:
+    runs-on: [self-hosted, worker-regular]
+
+    steps:
+    - name: Checkout Repository #Checkout Repository.
+      uses: actions/checkout@v4
+
+    - name: Set Up Go #SetUp GO.
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.20'
+        cache-dependency-path: ./go.sum
+
+    - name: Setup JFrog CLI #SetUp JFROG
+      uses: jfrog/setup-jfrog-cli@v4
+      env:
+        JF_ENV_1: ${{ secrets.JF_SECRET_ENV_MAGPIE }} #The authentication details are stored in GitHub Secrets.
+
+    - name: Show JFrog Config
+      shell: bash
+      run: jf config show
+
+    - name: Build Project #Build.
+      shell: bash
+      run: |
+        cd ./src
+        GOOS="linux" GOARCH="amd64" go build -tags lambda.norpc -o bootstrap main.go  
+      working-directory: ${{ env.WORKING_DIRECTORY }}
+
+    - name: Create Zip #Create Zip for AWS Lambda
+      shell: bash
+      run: |
+        cd ./src
+        zip -r {Service Name} resources/* bootstrap
+      working-directory: ${{ env.WORKING_DIRECTORY }}
+
+    - name: Publish To Artifactory #Release the artifact to JFROG
+      shell: bash
+      run: |
+        VERSION=$(echo "${{ github.ref_name }}" | sed -E 's|.*/v||')
+        FILE_TO_PUSH="./src/{Service Name}.zip"
+        DESTINATION_PATH="{JFROG PATH"
+        jf rt u --recursive=true $FILE_TO_PUSH $DESTINATION_PATH/{Service Name}-$VERSION.zip
+      working-directory: ${{ env.WORKING_DIRECTORY }}
