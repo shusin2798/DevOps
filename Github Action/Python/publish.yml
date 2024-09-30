@@ -1,0 +1,57 @@
+name: Publish
+run-name: Publish from tag = ${{ github.ref_name }}
+
+on:
+  push:
+    tags:
+      - '{Service Name}/v*' # The job gets executed as soon as a new tag is released. Mono Repo
+
+env:
+  JFROG_CLI_LOG_LEVEL: DEBUG
+  JFROG_SERVER: syncron-artifactory
+
+jobs:
+  publish:
+    runs-on: [self-hosted, worker-regular]
+    
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Setup JFrog CLI
+      uses: jfrog/setup-jfrog-cli@v4
+      env:
+        JF_ENV_1: ${{ secrets.JF_SECRET_ENV_MAGPIE }}
+
+    - name: Show JFrog Config
+      shell: bash
+      run: jf config show
+
+    - name: Setup Pip Config
+      shell: bash
+      run: jf pip-config --server-id-resolve $JFROG_SERVER --repo-resolve {Repo_Name}
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Create Zip
+      shell: bash
+      run: | 
+        pip install --upgrade pip
+        python3.10 -m venv venv
+        . venv/bin/activate
+        pip3 install --verbose .
+        cd venv/lib/python3.10/site-packages/
+        zip -r ../../../../{service_name}.zip .
+        cd ../../../../
+        zip -g -r {service_name}.zip src/*
+
+    - name: Publish To Artifactory
+      shell: bash
+      run: |
+        VERSION=$(echo "${{ github.ref }}" | sed -e 's/refs\/tags\/v//') 
+        ZIP_FILE="{service_name}.zip"
+        DESTINATION_PATH="{Artifactory_Repo_Path/{service_name}"
+        jf rt u --recursive=true $ZIP_FILE $DESTINATION_PATH/{service_name}-$VERSION.zip
