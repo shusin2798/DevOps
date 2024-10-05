@@ -1,0 +1,64 @@
+name: "Verify: {Service Name}" #Job Name.
+
+on:                   #Start execution when there is a new commit or a pull request.
+  push:
+    branches:
+      - main
+    tags-ignore:
+      - '**'
+    paths:
+      - "{Service Name}/**"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "{Service Name}/**"
+
+env:
+  JFROG_CLI_LOG_LEVEL: DEBUG
+  JFROG_SERVER: syncron-artifactory
+  WORKING_DIRECTORY: {Service Name} # Mono-repo
+
+jobs:
+  verify-and-test:
+    runs-on: [self-hosted, worker-regular]
+
+    steps:
+      - name: Checkout Repository #Checkout Repository.
+        uses: actions/checkout@v4
+
+      - name: Setup NodeJS  #SetUp Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.11.0'
+
+      - name: Setup JFrog CLI
+        uses:  jfrog/setup-jfrog-cli@v4
+        env:
+          JF_ENV_1: ${{ secrets.JF_SECRET_ENV_MAGPIE }}
+
+      - name: Show JFrog Configuration
+        shell: bash
+        run: jf config show
+
+      - name: Configure NPM #View NPM config
+        shell: bash
+        run: |
+          jf npm-config --server-id-resolve $JFROG_SERVER --repo-resolve {Repo_Name}
+
+      - name: Install Dependencies #Install Dependencies
+        shell: bash
+        run: jf npm ci
+
+      - name: Run Test #Run Tests
+        shell: bash
+        run: npm run test
+
+      - name: Test Summary #Generate Test Summary
+        uses: dorny/test-reporter@v1
+        id: test-report
+        if: success() || failure()
+        with:
+          name: JEST Tests
+          path: ./junit/test-results.xml
+          reporter: jest-junit
