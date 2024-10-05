@@ -1,0 +1,55 @@
+name: "Publish: {Service Name}"
+run-name: "Publish {Service Name} from tag = ${{ github.ref_name }}" # This name is visible on the list of runs.
+on:
+  push:
+    tags:
+      - '{Service Name}/v*' # The job gets executed as soon as a new tag is released.
+
+env:
+  JFROG_CLI_LOG_LEVEL: DEBUG
+  FROG_SERVER: {Artifactory Server Name} # The Artifactory Server Name.
+  WORKING_DIRECTORY: {Service Name} # If there is a mono repo structure then this flag helps to target the service folder.
+
+jobs:
+  publish:
+    runs-on: [self-hosted, worker-regular] # Specifies the machine that the job will run on. Can be gitHub hosted.
+
+    steps:
+      - name: Checkout Repository # Checkout Repository.
+        uses: actions/checkout@v4
+
+      - name: Setup NodeJS #Setup NodeJS
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.11.0'
+
+      - name: Setup JFrog CLI # Sets up JFrog Artifactory.
+        uses:  jfrog/setup-jfrog-cli@v4
+        env:
+          JF_ENV_1: ${{ secrets.JF_SECRET_ENV_MAGPIE }} # The secrets contains the authentication details to Artifactory Server.
+
+      - name: Show JFrog Configuration # Shows the Jfrog Artifactory config in use.
+        shell: bash
+        run: jf config show
+
+      - name: Configure NPM 
+        shell: bash
+        run: |
+          jf npm-config --server-id-resolve $JFROG_SERVER --repo-resolve {Repo_Name}
+
+      - name: Install Dependencies
+        shell: bash
+        run: jf npm ci
+
+      - name: Create Package #Create Package to be published
+        shell: bash
+        run: npm run package
+
+      - name: Publish To Artifactory
+        shell: bash
+        run: |
+          cd ./dist
+          VERSION=$(echo "${{ github.ref }}" | sed -e 's/refs\/tags\/v//')
+          FILE_TO_PUSH="{Service_Name}.zip"
+          DESTINATION_PATH="{Repo_Path}/{Service_Name}"
+          jf rt u --recursive=true $FILE_TO_PUSH $DESTINATION_PATH/{Service_Name}-$VERSION.zip
