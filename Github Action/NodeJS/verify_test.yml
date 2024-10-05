@@ -16,7 +16,7 @@ on:                   #Start execution when there is a new commit or a pull requ
 
 env:
   JFROG_CLI_LOG_LEVEL: DEBUG
-  JFROG_SERVER: syncron-artifactory
+  JFROG_SERVER: {Artifactory Server Name} # The Artifactory Server Name.
   WORKING_DIRECTORY: {Service Name} # Mono-repo
 
 jobs:
