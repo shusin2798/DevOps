@@ -9,12 +9,12 @@ client = boto3.client("logs", region_name="us-east-1")
 
 
 # Define log group and search term
-log_group_name = 'sftp-cluster'
-search_term = '75.98.142.49'  # Corrected search term
+log_group_name = '#Enter log group here'
+search_term = '#Enter search term'  # Corrected search term
 
-# Define start and end times for January 31, 2025
-start_time = int(datetime.strptime('2025-01-31 00:00:00', '%Y-%m-%d %H:%M:%S').timestamp() * 1000)
-end_time = int(datetime.strptime('2025-01-31 23:59:59', '%Y-%m-%d %H:%M:%S').timestamp() * 1000)
+# Define start and end times
+start_time = int(datetime.strptime('#Define Start_TIme', '%Y-%m-%d %H:%M:%S').timestamp() * 1000)
+end_time = int(datetime.strptime('#Define End_TIme', '%Y-%m-%d %H:%M:%S').timestamp() * 1000)
 
 # Initialize variables for pagination
 next_token = None
@@ -47,7 +47,7 @@ while True:
     next_token = response['nextToken']
 
 # Write logs to a CSV file
-with open('cloudwatch_logs_2025-01-31.csv', 'w', newline='') as csvfile:
+with open('#file_name where you want to save', 'w', newline='') as csvfile:
     fieldnames = ['timestamp', 'message']
     writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
@@ -58,4 +58,4 @@ with open('cloudwatch_logs_2025-01-31.csv', 'w', newline='') as csvfile:
             'message': event['message']
         })
 
-print("Logs saved to cloudwatch_logs_2025-01-31.csv")
+print("Logs saved to #file_name where you want to save")
